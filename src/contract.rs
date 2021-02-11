@@ -13,7 +13,7 @@ pub const BLOCK_SIZE: usize = 256;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: Env,
+    _env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
     let max_messages = match valid_max_messages(msg.max_messages) {
@@ -237,7 +237,7 @@ pub fn try_size<S: Storage, A: Api, Q: Querier>(
 
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let mut message_queue_storage = MessageQueueStorage::from_storage(&mut deps.storage);
-    let mut message_queue = message_queue_storage.get_message_queue(&sender_address_raw);
+    let message_queue = message_queue_storage.get_message_queue(&sender_address_raw);
     status = Success;
 
     Ok(HandleResponse {
