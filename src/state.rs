@@ -9,9 +9,9 @@ use cosmwasm_storage::{PrefixedStorage};
 
 pub static SEQ_KEY: &[u8] = b"seq";
 pub static CONFIG_KEY: &[u8] = b"config";
-// keys for messages take form: m{message_id.to_be_bytes()}
+// keys for messages take form: b"mes{message_id.to_be_bytes()}"
 pub static MESSAGE_PREFIX: &[u8] = b"mes";
-// keys for message box queues take form: q{CanonicalAddr of recipient}
+// keys for message box queues take form: b"box{CanonicalAddr.as_slice().to_vec()}"
 pub static MESSAGE_QUEUE_PREFIX: &[u8] = b"box";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
