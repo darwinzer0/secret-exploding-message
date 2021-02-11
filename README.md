@@ -1,4 +1,4 @@
-# secret-exploding-message
+# Secret Exploding Message
 
 Secret contract for the passing of self-destructing messages on [Secret Network](https://scrt.network). Messages sent using this contract can be read once by the recipient and then they are deleted. Because the contract's data is encrypted no one else can view the contents of the message. 
 
@@ -51,7 +51,7 @@ let data = JSON.parse(utf8decoder.decode(response.data));
 
 ## Sending messages
 
-Message are sent using the `send` request with two parameters `content` and `target`. The message is added to the rear of the message queue for the target, unless: 1) the queue is full (#messages == `max_messages`) and `discard` was set to `true` in the initialization message, or 2) the sender has been blocked by the recipient (see below).
+Messages are sent using the `send` request with two parameters `content` and `target`. The message is added to the rear of the message queue for the target, unless: 1) the queue is full (#messages == `max_messages`) and `discard` was set to `true` in the initialization message, or 2) the sender has been blocked by the recipient (see below).
 
 ## Receiving messages
 
