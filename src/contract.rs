@@ -128,7 +128,7 @@ pub fn try_send<S: Storage, A: Api, Q: Querier>(
                     return Err(StdError::generic_err("Corrupted message queue."));
                 }
             }
-            // prepare new message get rear message
+            // prepare new message
             let mut new_message = Message {
                 content: content_byte_slice.to_vec(),
                 from: sender_address_raw,
