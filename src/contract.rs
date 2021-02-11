@@ -179,7 +179,7 @@ pub fn try_receive<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     let status: ResponseStatus;
     let mut response_message = String::new();
-    let mut number_of_unread_messages: Option<u32> = None;
+    let mut number_of_unread_messages: u32 = 0;
     let mut content: Option<String> = None;
     let mut sender: Option<HumanAddr> = None;
 
@@ -202,7 +202,7 @@ pub fn try_receive<S: Storage, A: Api, Q: Querier>(
             message_storage.remove_message(&message_queue.front);
             message_queue.front = found_mes.next;
             message_queue.length -= 1;
-            number_of_unread_messages = Some(message_queue.length.clone());
+            number_of_unread_messages = message_queue.length.clone();
 
             // store new version of message queue
             let mut message_queue_storage = MessageQueueStorage::from_storage(&mut deps.storage);
@@ -232,9 +232,12 @@ pub fn try_size<S: Storage, A: Api, Q: Querier>(
     env: Env,
 ) -> StdResult<HandleResponse> {
     let status: ResponseStatus;
-    let mut response_message = String::new();
-    let mut number_of_unread_messages: Option<u16> = None;
+    let config: Config = load(&mut deps.storage, CONFIG_KEY)?;
+    let response_message = String::from(&format!("Maximum number of messages allowed: {}", config.max_messages));
 
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let mut message_queue_storage = MessageQueueStorage::from_storage(&mut deps.storage);
+    let mut message_queue = message_queue_storage.get_message_queue(&sender_address_raw);
     status = Success;
 
     Ok(HandleResponse {
@@ -243,7 +246,7 @@ pub fn try_size<S: Storage, A: Api, Q: Querier>(
         data: Some(to_binary(&HandleAnswer::Size {
             status,
             message: response_message,
-            number_of_unread_messages,
+            number_of_unread_messages: message_queue.length,
         })?),
     })
 }
@@ -253,15 +256,23 @@ pub fn try_block<S: Storage, A: Api, Q: Querier>(
     env: Env,
     address: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    let status: ResponseStatus;
-    let mut response_message = String::new();
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let blocked_address_raw = deps.api.canonical_address(&address)?;
+    let mut message_queue_storage = MessageQueueStorage::from_storage(&mut deps.storage);
+    let mut message_queue = message_queue_storage.get_message_queue(&sender_address_raw);
+    if !message_queue.blocked.contains(&blocked_address_raw.as_slice().to_vec()) {
+        // only write to the storage if needed
+        message_queue.blocked.insert(blocked_address_raw.as_slice().to_vec());
+        message_queue_storage.set_message_queue(&sender_address_raw, message_queue);
+    }
 
-    status = Success;
+    let status: ResponseStatus = Success;
+    let response_message = String::from(&format!("Address {} blocked.", address));
 
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Status {
+        data: Some(to_binary(&HandleAnswer::Block {
             status,
             message: response_message,
         })?),
@@ -273,15 +284,23 @@ pub fn try_unblock<S: Storage, A: Api, Q: Querier>(
     env: Env,
     address: HumanAddr,
 ) -> StdResult<HandleResponse> {
-    let status: ResponseStatus;
-    let mut response_message = String::new();
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let blocked_address_raw = deps.api.canonical_address(&address)?;
+    let mut message_queue_storage = MessageQueueStorage::from_storage(&mut deps.storage);
+    let mut message_queue = message_queue_storage.get_message_queue(&sender_address_raw);
+    if message_queue.blocked.contains(&blocked_address_raw.as_slice().to_vec()) {
+        // only write to the storage if needed
+        message_queue.blocked.remove(&blocked_address_raw.as_slice().to_vec());
+        message_queue_storage.set_message_queue(&sender_address_raw, message_queue);
+    }
 
-    status = Success;
+    let status: ResponseStatus = Success;
+    let response_message = String::from(&format!("Address {} unblocked.", address));
 
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Status {
+        data: Some(to_binary(&HandleAnswer::Unblock {
             status,
             message: response_message,
         })?),
@@ -301,152 +320,3 @@ fn query_ping() -> StdResult<PingResponse> {
     Ok(PingResponse{ response: String::from("pong") })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{coins, from_binary, StdError};
-
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg { seq_start: Uint128(10000_u128), max_messages: 4, max_message_size: 20, discard: false };
-        let env = mock_env("creator", &coins(1000, "earth"));
-
-        // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-    }
-
-    #[test]
-    fn send_one_read_two_test() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg { seq_start: Uint128(10000), max_messages: 4, max_message_size: 20, discard: false };
-        let env = mock_env("creator", &coins(1000, "earth"));
-        let res = init(&mut deps, env, msg).unwrap();
-
-        // person 1 post message
-        let env = mock_env("person1", &coins(2, "token"));
-        let msg = HandleMsg::Send { content: String::from("hi person 2"), target: HumanAddr::from("person2") };
-        let res = handle(&mut deps, env, msg).unwrap();
-        let handle_send: HandleAnswer = from_binary(&res.data.unwrap()).unwrap();
-        match handle_send {
-            HandleAnswer::Send { status, message } => {
-                println!("{:?}", status);
-                println!("{:?}", message);
-            },
-            _ => panic!("unexpected"),
-        }
-
-        // person 2 read message
-        let env = mock_env("person2", &coins(2, "token"));
-        let msg = HandleMsg::Recv { };
-        let res = handle(&mut deps, env, msg).unwrap();
-        let handle_recv: HandleAnswer = from_binary(&res.data.unwrap()).unwrap();
-        match handle_recv {
-            HandleAnswer::Recv {
-                status,
-                message,
-                number_of_unread_messages,
-                content,
-                sender
-            } => {
-                println!("{:?}", status);
-                println!("{:?}", message);
-                println!("{:?}", number_of_unread_messages);
-                println!("{:?}", content);
-                println!("{:?}", sender);
-            },
-            _ => panic!("unexpected"),
-        }
-
-        let env = mock_env("person2", &coins(2, "token"));
-        let msg = HandleMsg::Recv { };
-        let res = handle(&mut deps, env, msg).unwrap();
-        let handle_recv: HandleAnswer = from_binary(&res.data.unwrap()).unwrap();
-        match handle_recv {
-            HandleAnswer::Recv {
-                status,
-                message,
-                number_of_unread_messages,
-                content,
-                sender
-            } => {
-                println!("{:?}", status);
-                println!("{:?}", message);
-                println!("{:?}", number_of_unread_messages);
-                println!("{:?}", content);
-                println!("{:?}", sender);
-            },
-            _ => panic!("unexpected"),
-        }
-    }
-
-    #[test]
-    fn send_three_max_two_discard_false_test() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg { seq_start: Uint128(10000), max_messages: 2, max_message_size: 20, discard: false };
-        let env = mock_env("creator", &coins(1000, "earth"));
-        let res = init(&mut deps, env, msg).unwrap();
-
-        // person 1 posts 3 messages
-        let env = mock_env("person1", &coins(2, "token"));
-        let msg = HandleMsg::Send { content: String::from("hi 1"), target: HumanAddr::from("person2") };
-        let res = handle(&mut deps, env, msg).unwrap();
-
-        let env = mock_env("person1", &coins(2, "token"));
-        let msg = HandleMsg::Send { content: String::from("hi 2"), target: HumanAddr::from("person2") };
-        let res = handle(&mut deps, env, msg).unwrap();
-
-        let env = mock_env("person1", &coins(2, "token"));
-        let msg = HandleMsg::Send { content: String::from("hi 3"), target: HumanAddr::from("person2") };
-        let res = handle(&mut deps, env, msg).unwrap();
-
-        // person 2 read message
-        let env = mock_env("person2", &coins(2, "token"));
-        let msg = HandleMsg::Recv { };
-        let res = handle(&mut deps, env, msg).unwrap();
-        let handle_recv: HandleAnswer = from_binary(&res.data.unwrap()).unwrap();
-        match handle_recv {
-            HandleAnswer::Recv {
-                status,
-                message,
-                number_of_unread_messages,
-                content,
-                sender
-            } => {
-                println!("{:?}", status);
-                println!("{:?}", message);
-                println!("{:?}", number_of_unread_messages);
-                println!("{:?}", content);
-                println!("{:?}", sender);
-            },
-            _ => panic!("unexpected"),
-        }
-
-        let env = mock_env("person2", &coins(2, "token"));
-        let msg = HandleMsg::Recv { };
-        let res = handle(&mut deps, env, msg).unwrap();
-        let handle_recv: HandleAnswer = from_binary(&res.data.unwrap()).unwrap();
-        match handle_recv {
-            HandleAnswer::Recv {
-                status,
-                message,
-                number_of_unread_messages,
-                content,
-                sender
-            } => {
-                println!("{:?}", status);
-                println!("{:?}", message);
-                println!("{:?}", number_of_unread_messages);
-                println!("{:?}", content);
-                println!("{:?}", sender);
-            },
-            _ => panic!("unexpected"),
-        }
-    }
-
-}

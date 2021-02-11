@@ -69,7 +69,7 @@ pub enum HandleAnswer {
         /// execution description
         message: String,
         /// number of unread messages
-        number_of_unread_messages: Option<u32>,
+        number_of_unread_messages: u32,
         /// content of message
         content: Option<String>,
         /// sender of message
@@ -82,7 +82,21 @@ pub enum HandleAnswer {
         /// execution description
         message: String,
         /// number of unread messages
-        number_of_unread_messages: Option<u16>,
+        number_of_unread_messages: u32,
+    },
+    /// block response
+    Block {
+        /// success or failure
+        status: ResponseStatus,
+        /// execution description
+        message: String,
+    },
+    /// unblock response
+    Unblock {
+        /// success or failure
+        status: ResponseStatus,
+        /// execution description
+        message: String,
     },
     /// generic status response
     Status {

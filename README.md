@@ -1,71 +1,64 @@
 # secret-exploding-message
 
-Secret contract for the passing of self-destructing messages on secret network.
+Secret contract for the passing of self-destructing messages on [Secret Network](https://scrt.network). Messages sent using this contract can be read once by the recipient and then they are deleted. Because the contract's data is encrypted no one else can view the contents of the message. 
 
-# Contribution
+![exploding message](https://img.gadgethacks.com/img/92/72/63485919495213/0/send-self-destructing-spy-messages-via-google-docs-texts-and-private-links.w1456.jpg "This message will self-destruct!")
 
-If 
+## Initializing the contract
 
-# Secret Contracts Starter Pack
+The initialization message takes the following format:
 
-This is a template to build secret contracts in Rust to run in
-[Secret Network](https://github.com/enigmampc/SecretNetwork).
-To understand the framework better, please read the overview in the
-[cosmwasm repo](https://github.com/CosmWasm/cosmwasm/blob/master/README.md),
-and dig into the [cosmwasm docs](https://www.cosmwasm.com).
-This assumes you understand the theory and just want to get coding.
+```rust
+pub struct InitMsg {
+    /// initial value of the message id serial
+    pub seq_start: Uint128,
+    /// maximum number of messages per receiver address
+    pub max_messages: i32,
+    /// maximum size of a message in bytes
+    pub max_message_size: i32,
+    /// if discard true, will not push messages to a full queue,
+    /// else will dequeue oldest message to make room
+    pub discard: bool,
+}
+```
+`seq_start` is the starting id value for the first message. The id is incremented for each additional message that is sent. The `max_messages` field must be `1` or higher. The `max_message_size` is cast to a `u16`, so must be in `1..65535` or will cause an error message.
 
-## Creating a new repo from template
+There are five types of requested defined for the contract:
 
-Assuming you have a recent version of rust and cargo installed (via [rustup](https://rustup.rs/)),
-then the following should get you a new repo to start a contract:
-
-First, install
-[cargo-generate](https://github.com/ashleygwilliams/cargo-generate).
-Unless you did that before, run this line now:
-
-```sh
-cargo install cargo-generate --features vendored-openssl
+```rust
+pub enum HandleMsg {
+    Send {
+        content: String,
+        target: HumanAddr,
+    },
+    Recv { },
+    Size { },
+    Block {
+        address: HumanAddr,
+    },
+    Unblock {
+        address: HumanAddr,
+    },
+}
 ```
 
-Now, use it to create your new contract.
-Go to the folder in which you want to place it and run:
+## Sending messages
 
-```sh
-cargo generate --git https://github.com/enigmampc/secret-template.git --name YOUR_NAME_HERE
-```
+Message are sent using the `send` request with two parameters `content` and `target`. The message is added to the rear of the message queue for the target, unless: 1) the queue is full (#messages == `max_messages`) and `discard` was set to `true` in the initialization message, or 2) the sender has been blocked by the recipient (see below).
 
-You will now have a new folder called `YOUR_NAME_HERE` (I hope you changed that to something else)
-containing a simple working contract and build system that you can customize.
+## Receiving messages
 
-## Create a Repo
+Receiving a message is done via a `recv` request, rather than a query, because we want to have access to the sender's address.
 
-After generating, you have a initialized local git repo, but no commits, and no remote.
-Go to a server (eg. github) and create a new upstream repo (called `YOUR-GIT-URL` below).
-Then run the following:
+The messages for each user are stored in a linked queue data structure in the storage. A request to receive a message dequeues the message at the front of the queue, deletes it from the storage, and returns the contents in the response. The number of remaining messages in the queue is also returned. 
 
-```sh
-# this is needed to create a valid Cargo.lock file (see below)
-cargo check
-git checkout -b master # in case you generate from non-master
-git add .
-git commit -m 'Initial Commit'
-git remote add origin YOUR-GIT-URL
-git push -u origin master
-```
+## Blocking and unblocking senders
 
-## Using your project
+Along with the message queue each user has a HashSet that holds the accounts that are blocked from sending messages. 
 
-Once you have your custom repo, you should check out [Developing](./Developing.md) to explain
-more on how to run tests and develop code. Or go through the
-[online tutorial](https://www.cosmwasm.com/docs/getting-started/intro) to get a better feel
-of how to develop.
+## Disclaimer
 
-[Publishing](./Publishing.md) contains useful information on how to publish your contract
-to the world, once you are ready to deploy it on a running blockchain. And
-[Importing](./Importing.md) contains information about pulling in other contracts or crates
-that have been published.
+I created this contract to help teach myself Rust and how to program secret contracts that run on [Secret Network](https://github.com/enigmampc/SecretNetwork). Although privacy is baked into the network, no guarantees are made for how secret these messages actually are (e.g., due to data leaks, etc.). Results *are* padded using the [secret-toolkit utilities](https://github.com/enigmampc/secret-toolkit/tree/master/packages/utils), but I have not done an exhaustive evaluation of whether or how metadata such as key length, message length, and message sending/receiving behavior on the network could leak information.
 
-Please replace this README file with information about your specific project. You can keep
-the `Developing.md` and `Publishing.md` files as useful referenced, but please set some
-proper description in the README.
+If you like this please consider sending a tip along to ETH `0x05E6fAccaDA519DE3840aFdc7f9cb4157554AFF9` or SCRT `secret1p0k4034f67yqhqt4pcuftl7xj7ttzvd5wvhw5w`. 
+
