@@ -23,7 +23,7 @@ pub struct InitMsg {
 ```
 `seq_start` is the starting id value for the first message. The id is incremented for each additional message that is sent. The `max_messages` field must be `1` or higher. The `max_message_size` is cast to a `u16`, so must be in `1..65535` or will cause an error message.
 
-There are five types of requested defined for the contract:
+There are five types of requests defined for the contract:
 
 ```rust
 pub enum HandleMsg {
@@ -40,6 +40,13 @@ pub enum HandleMsg {
         address: HumanAddr,
     },
 }
+```
+
+For responses with a data field it is sent as a padded binary Uint8Array. You will need to decode that. For example, in Javascript you would do something like the following (assuming the `response` variable holds the response from the contract): 
+
+```javascript
+let utf8decoder = new TextDecoder();
+let data = JSON.parse(utf8decoder.decode(response.data));
 ```
 
 ## Sending messages
