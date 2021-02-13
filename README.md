@@ -1,6 +1,8 @@
 # Secret Exploding Message
 
-Secret contract for the passing of self-destructing messages on [Secret Network](https://scrt.network). Messages sent using this contract can be read once by the recipient and then they are deleted. Because the contract's data is encrypted no one else can view the contents of the message. 
+Secret contract for the passing of self-destructing messages on [Secret Network](https://scrt.network). Messages sent using this contract can be read once by the recipient and then they are deleted. Because the contract's data is encrypted no one else can view the contents of the message.
+
+A more in depth description of how I wrote this contract can be found here: <https://darwinzero.medium.com/creating-my-first-secret-contract-on-secret-network-scrt-db0d04597051>. 
 
 ![exploding message](https://img.gadgethacks.com/img/92/72/63485919495213/0/send-self-destructing-spy-messages-via-google-docs-texts-and-private-links.w1456.jpg "This message will self-destruct!")
 
