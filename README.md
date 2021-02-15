@@ -71,7 +71,4 @@ Along with the message queue each user has a HashSet that holds the accounts tha
 
 ## Disclaimer
 
-I created this contract to help teach myself Rust and how to program secret contracts that run on [Secret Network](https://github.com/enigmampc/SecretNetwork). Although privacy is baked into the network, no guarantees are made for how secret these messages actually are (e.g., due to data leaks, etc.). Results *are* padded using the [secret-toolkit utilities](https://github.com/enigmampc/secret-toolkit/tree/master/packages/utils), but I have not done an exhaustive evaluation of whether or how metadata such as key length, request message length, and message sending/receiving behavior on the network could leak information.
-
-If you like this please consider sending a tip along to ETH `0x05E6fAccaDA519DE3840aFdc7f9cb4157554AFF9` or SCRT `secret1p0k4034f67yqhqt4pcuftl7xj7ttzvd5wvhw5w`. 
-
+I created this contract to help teach myself Rust and how to program secret contracts that run on [Secret Network](https://github.com/enigmampc/SecretNetwork). Although privacy is baked into the network, no guarantees are made for how secret these messages actually are (e.g., due to data leaks, etc.). Results *are* padded using the [secret-toolkit utilities](https://github.com/enigmampc/secret-toolkit/tree/master/packages/utils), but I have not done an exhaustive evaluation of whether or how metadata such as key length, request message length, and message sending/receiving behavior on the network could leak information. And one final important caveat is that the message does not really "explode" entirely from the blockchain given that it still exists on the chain prior to the deletion (albeit in an encrypted form only accessible to the recipient).
